@@ -2,7 +2,7 @@ import os
 import torchvision.datasets as datasets
 from torchvision import transforms
 
-def download_voc(root_dir='/content/drive/MyDrive/ColabNotebooks/lab4/data', year='2012'):
+def download_voc(root_dir='data', year='2012'):
     from torchvision.datasets import VOCSegmentation
 
     # Ensure the root directory exists
