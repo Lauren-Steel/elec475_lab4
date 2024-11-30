@@ -33,7 +33,7 @@ def get_dataloader(root, image_set, batch_size=8, shuffle=True):
         year='2012',
         image_set=image_set,
         transforms=lambda img, tgt: transform_image_and_target(img, tgt),  # Ensure both img and tgt are passed
-        download=True
+        download=False
     )
 
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)

@@ -1,0 +1,1 @@
+python train_model.py --device mps --batch_size 16 --num_epochs 25

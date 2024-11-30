@@ -1,5 +1,6 @@
 import os
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
 def visualize_sample(image, pred, target, sample_id):
     output_dir = 'visualizations'  # Changed from '/content/...' to a relative path
@@ -15,3 +16,43 @@ def visualize_sample(image, pred, target, sample_id):
 
     plt.savefig(os.path.join(output_dir, f'sample_{sample_id}.png'))
     plt.close()
+
+
+def plot_training_validation_loss(training_loss, validation_loss, save_path=None):
+    epochs = list(range(1, len(training_loss) + 1))
+
+    # Create the plot
+    fig = go.Figure()
+
+    # Add training loss trace
+    fig.add_trace(go.Scatter(
+        x=epochs, y=training_loss,
+        mode='lines+markers',
+        name='Training Loss',
+        line=dict(color='blue')
+    ))
+
+    # Add validation loss trace
+    fig.add_trace(go.Scatter(
+        x=epochs, y=validation_loss,
+        mode='lines+markers',
+        name='Validation Loss',
+        line=dict(color='red')
+    ))
+
+    # Update layout
+    fig.update_layout(
+        title='Training and Validation Loss',
+        xaxis_title='Epoch',
+        yaxis_title='Loss',
+        legend_title='Loss Type',
+        template='plotly_white'
+    )
+
+    # Save or show the plot
+    if save_path:
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        fig.write_html(save_path)
+        print(f"Plot saved to {save_path}")
+    else:
+        fig.show()
