@@ -1,0 +1,11 @@
+# Ignore compiled Python files
+*.pyc
+__pycache__/
+
+# Ignore IDE-related files
+.vscode/
+.DS_Store
+
+# Ignore dataset and output directories
+data/
+visualizations/
