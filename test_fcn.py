@@ -25,7 +25,7 @@ def load_dataset():
 
     # Use the custom transform for VOCSegmentation
     dataset = VOCSegmentation(
-        root='/content/drive/MyDrive/ColabNotebooks/lab4/data',
+        root='data',
         year='2012',
         image_set='val',
         download=False,

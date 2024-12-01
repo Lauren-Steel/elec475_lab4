@@ -11,7 +11,7 @@ def visualize_sample(image, pred, target, sample_id):
     target = target.cpu().numpy()
 
     # Create the output folder if it doesn't exist
-    output_dir = "/content/drive/MyDrive/ColabNotebooks/lab4/visualizations"
+    output_dir = "visualizations"
     os.makedirs(output_dir, exist_ok=True)
 
     # Plot and save the visualization
