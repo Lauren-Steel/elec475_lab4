@@ -1,8 +1,9 @@
 import torch
 from torchvision.models.segmentation import fcn_resnet50, FCN_ResNet50_Weights
 
+
 def load_pretrained_fcn_resnet():
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
     print(f"Using device: {device}")
 
     # Use the updated weights argument
@@ -12,4 +13,3 @@ def load_pretrained_fcn_resnet():
 
     print("Pre-trained FCN-ResNet50 model loaded successfully!")
     return model
-
