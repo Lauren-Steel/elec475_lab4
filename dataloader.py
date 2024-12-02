@@ -1,40 +1,63 @@
-import os
+
 import torch
-import numpy as np
-from torchvision.datasets import VOCSegmentation
-from torchvision import transforms
+import torchvision
 from torch.utils.data import DataLoader
+from torchvision.datasets import VOCSegmentation
+from torchvision.transforms import functional as TF
+import numpy as np
 
-def get_dataloader(root, image_set, batch_size=8, shuffle=True):
-    def transform_image_and_target(image, target):
-        # Image transformation and target
-        image_transform = transforms.Compose([
-            transforms.Resize(256),  # Resize images to a fixed size
-            transforms.CenterCrop(256),  # Crop images to a fixed size
-            transforms.ToTensor(),
-            transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-        ])
 
-        target_transform = transforms.Compose([
-            transforms.Resize(256, interpolation=transforms.InterpolationMode.NEAREST),  # NEAREST is used to avoid introducing new classes
-            transforms.CenterCrop(256)
-        ])
+class SegmentationTransform:
+    def __init__(self, resize=None, crop_size=None, normalize=None, h_flip=False):
+        self.resize = resize
+        self.crop_size = crop_size
+        self.normalize = normalize
+        self.h_flip = h_flip
 
-        image = image_transform(image)
+    def __call__(self, img, target):
+        if self.resize:
+            img = TF.resize(img, self.resize)
+            target = TF.resize(target, self.resize, interpolation=torchvision.transforms.InterpolationMode.NEAREST)
 
-        # Convert target to tensor
-        target = target_transform(target)
-        target = torch.tensor(np.array(target), dtype=torch.long)
-        return image, target
+        if self.h_flip and torch.rand(1) < 0.5:
+            img = TF.hflip(img)
+            target = TF.hflip(target)
 
-    # Load dataset
-    dataset = VOCSegmentation(
-        root=root,
-        year='2012',
-        image_set=image_set,
-        transforms=lambda img, tgt: transform_image_and_target(img, tgt),  # Ensure both img and tgt are passed
-        download=False
+        if self.crop_size:
+            crop_params = torchvision.transforms.RandomCrop.get_params(img, output_size=self.crop_size)
+            img = TF.crop(img, *crop_params)
+            target = TF.crop(target, *crop_params)
+
+        target = torch.as_tensor(np.array(target), dtype=torch.long)
+        img = TF.to_tensor(img)
+        if self.normalize:
+            img = TF.normalize(img, mean=self.normalize['mean'], std=self.normalize['std'])
+
+        return img, target
+
+
+def get_dataloader(data_path, split, batch_size, shuffle):
+    transform = SegmentationTransform(
+        resize=(256, 256),
+        crop_size=(224, 224),
+        normalize={'mean': (0.485, 0.456, 0.406), 'std': (0.229, 0.224, 0.225)},
+        h_flip=(split == 'train')
     )
 
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+    dataset = VOCSegmentation(
+        root=data_path,
+        year='2012',
+        image_set=split,
+        download=False,
+        transforms=transform
+    )
+
+    dataloader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=4,
+        pin_memory=True
+    )
+
     return dataloader

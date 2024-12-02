@@ -43,7 +43,7 @@ if __name__ == '__main__':
     device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
 
     # Load dataset
-    dataloader = get_dataloader('data/VOC/VOCdevkit', 'val', batch_size=1, shuffle=False)
+    dataloader = get_dataloader('data/VOCdevkit/VOC2012', 'val', batch_size=1, shuffle=False)
 
     # Evaluate model
     evaluate_model(model, dataloader, device)
