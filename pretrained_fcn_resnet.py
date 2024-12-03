@@ -2,7 +2,7 @@ import torch
 from torchvision.models.segmentation import fcn_resnet50, FCN_ResNet50_Weights
 
 
-def load_pretrained_fcn_resnet():
+def pretrained_fcn_resnet():
     device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
     print(f"Using device: {device}")
 

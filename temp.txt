@@ -1,0 +1,172 @@
+# Set device
+device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
+
+# Paths
+data_path = 'data/VOC/VOCdevkit'
+
+# Training parameters
+batch_size = 8
+num_epochs = 20
+learning_rate = 0.001
+num_classes = 21  # VOC2012 has 21 classes
+
+# Initialize model, loss, and optimizer
+model = CompactSegmentationModel(num_classes).to(device)
+criterion = nn.CrossEntropyLoss()
+optimizer = Adam(model.parameters(), lr=learning_rate)
+
+# Load data
+train_loader = get_dataloader(data_path, 'train', batch_size=batch_size, shuffle=True)
+val_loader = get_dataloader(data_path, 'val', batch_size=batch_size, shuffle=False)
+
+# Training loop
+for epoch in range(num_epochs):
+    model.train()
+    epoch_loss = 0
+
+    for images, targets in tqdm(train_loader, desc="Training", unit="batch"):
+        images, targets = images.to(device), targets.to(device)
+
+        # Forward pass
+        outputs = model(images)
+        loss = criterion(outputs, targets)
+
+        # Backward pass
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        epoch_loss += loss.item()
+
+    print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {epoch_loss / len(train_loader):.4f}")
+
+    # Validate after each epoch (optional)
+    model.eval()
+    with torch.no_grad():
+        total_val_loss = 0
+        for images, targets in val_loader:
+            images, targets = images.to(device), targets.to(device)
+            outputs = model(images)
+            loss = criterion(outputs, targets)
+            total_val_loss += loss.item()
+        print(f"Validation Loss: {total_val_loss / len(val_loader):.4f}")
+
+# Save model
+torch.save(model.state_dict(), 'results/model/seg_model.pth')
+print("Model saved to results/model/seg_model.pth")
+
+
+
+
+------------------
+DISTILLATION
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+from tqdm import tqdm
+from torch.optim import Adam
+from torchvision.models.segmentation import fcn_resnet50
+from seg_model import CompactSegmentationModel  # Import your model
+from dataloader import get_dataloader
+from visualizations import plot_training_validation_loss
+
+
+def initialize_models(num_classes, device):
+    # Load pre-trained FCN ResNet50 as teacher
+    teacher_model = fcn_resnet50(pretrained=True)
+    teacher_model.eval()  # Set to inference mode
+    for param in teacher_model.parameters():
+        param.requires_grad = False  # Freeze all weights
+    teacher_model.to(device)
+
+    # Initialize student model
+    student_model = CompactSegmentationModel(num_classes)
+    student_model.train()
+    student_model.to(device)
+
+    return teacher_model, student_model
+
+
+
+def distillation_loss(output_student, output_teacher, targets, T, alpha):
+    # Calculate the cross-entropy loss on true labels
+    ce_loss = F.cross_entropy(output_student, targets)
+
+    # Soften probabilities
+    log_probs_student = F.log_softmax(output_student / T, dim=1)
+    probs_teacher = F.softmax(output_teacher / T, dim=1)
+
+    # Calculate the KL divergence
+    kd_loss = F.kl_div(log_probs_student, probs_teacher, reduction='batchmean') * (T * T)
+
+    # Total loss
+    loss = alpha * kd_loss + (1 - alpha) * ce_loss
+    return loss
+
+def train_distillation(teacher_model, student_model, train_loader, val_loader, device, T=2.0, alpha=0.5, epochs=20):
+    optimizer = Adam(student_model.parameters(), lr=0.001)
+
+    training_losses = []
+    validation_losses = []
+    
+    for epoch in range(epochs):
+        student_model.train()
+        total_loss = 0
+        for images, targets in tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs} Training", unit="batch"):
+            images, targets = images.to(device), targets.to(device)
+
+            # Forward pass through both models
+            with torch.no_grad():
+                teacher_outputs = teacher_model(images)['out']
+            student_outputs = student_model(images)
+
+            # Compute distillation loss
+            loss = distillation_loss(student_outputs, teacher_outputs, targets, T, alpha)
+            total_loss += loss.item()
+
+            # Backpropagation
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        training_losses.append(total_loss / len(train_loader))
+        print(f'Epoch {epoch+1}, Loss: {total_loss / len(train_loader)}')
+
+        val_losses = validate(student_model, val_loader, device)
+        validation_losses.append(val_losses)
+
+    plot_path = 'results/plots/distillation_loss.html'
+    plot_training_validation_loss(training_losses, validation_losses, save_path=plot_path)
+
+
+
+def validate(model, val_loader, device):
+    model.eval()
+    total_val_loss = 0
+    with torch.no_grad():
+        for images, targets in val_loader:
+            images, targets = images.to(device), targets.to(device)
+            outputs = model(images)
+            val_loss = F.cross_entropy(outputs, targets)
+            total_val_loss += val_loss.item()
+    
+    print(f'Validation Loss: {total_val_loss / len(val_loader)}')
+
+def main():
+    device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
+    num_classes = 21
+    data_path = 'data/VOC/VOCdevkit'
+    batch_size = 8
+    
+    train_loader = get_dataloader(data_path, 'train', batch_size)
+    val_loader = get_dataloader(data_path, 'val', batch_size)
+
+    teacher_model, student_model = initialize_models(num_classes, device)
+    # teacher_model = load_model('path_to_teacher_weights.pth', num_classes=21, device=device, is_teacher=True)
+    # student_model = load_model(None, num_classes=21, device=device, is_teacher=False)
+
+    train_distillation(teacher_model, student_model, train_loader, val_loader, device)
+
+if __name__ == '__main__':
+    main()

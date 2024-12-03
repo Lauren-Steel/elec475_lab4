@@ -2,7 +2,7 @@ import torch
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
-from pretrained_fcn_resnet import load_pretrained_fcn_resnet  # Import the model-loading function
+from pretrained_fcn_resnet import pretrained_fcn_resnet  # Import the model-loading function
 from metrics import compute_miou  # Custom function for mIoU
 from visualizations import visualize_sample  # Visualization utility
 from dataloader import get_dataloader
@@ -39,7 +39,7 @@ def evaluate_model(model, dataloader, device):
 
 if __name__ == '__main__':
     # Load pre-trained model
-    model = load_pretrained_fcn_resnet()  # Modularized model loading
+    model = pretrained_fcn_resnet()  # Modularized model loading
     device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
 
     # Load dataset

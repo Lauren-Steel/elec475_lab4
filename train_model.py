@@ -4,7 +4,8 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 from torch.optim import Adam
-from seg_model import CompactSegmentationModel  # Import your model
+from torch.optim.lr_scheduler import StepLR
+from seg_model import CompactSegmentationModel, CompactUNet  # Import your model
 
 from dataloader import get_dataloader  # Import dataloader
 from visualizations import plot_training_validation_loss
@@ -14,13 +15,18 @@ from visualizations import plot_training_validation_loss
 
 def train_model(data_path, batch_size, num_epochs, learning_rate, num_classes=21, device='cpu'):
     # Initialize model, loss, and optimizer
+    device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
     model = CompactSegmentationModel(num_classes).to(device)
+    # model = CompactUNet(num_classes).to(device)
+
     criterion = nn.CrossEntropyLoss()
     optimizer = Adam(model.parameters(), lr=learning_rate)
 
     # Load data
     train_loader = get_dataloader(data_path, 'train', batch_size=batch_size, shuffle=True)
     val_loader = get_dataloader(data_path, 'val', batch_size=batch_size, shuffle=False)
+
+    scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
 
     training_losses = []
     validation_losses = []
@@ -48,6 +54,8 @@ def train_model(data_path, batch_size, num_epochs, learning_rate, num_classes=21
             optimizer.step()
 
             epoch_loss += loss.item()
+        
+        scheduler.step()
 
         avg_training_loss = epoch_loss / len(train_loader)
         training_losses.append(avg_training_loss)
@@ -87,7 +95,7 @@ def main():
     # Command-line arguments for training parameters
     parser = argparse.ArgumentParser(description="Train a compact segmentation model.")
     parser.add_argument('--data_path', type=str, default='data/VOC/VOCdevkit', help='Path to dataset')
-    parser.add_argument('--batch_size', type=int, default=8, help='Batch size for training')
+    parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
     parser.add_argument('--num_epochs', type=int, default=20, help='Number of epochs for training')
     parser.add_argument('--learning_rate', type=float, default=0.001, help='Learning rate for optimizer')
     parser.add_argument('--num_classes', type=int, default=21, help='Number of classes in dataset')
