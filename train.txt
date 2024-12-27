@@ -1,0 +1,1 @@
+python css_train.py --batch-size 16 --epochs 20 --learning-rate 1e-3
